@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ESP32 DHT11 — EnviroMonitor (USB & Wi-Fi)</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg-dark: #090b10;
+      --bg-gradient: radial-gradient(circle at 15% 15%, rgba(255, 215, 0, 0.08), transparent 40%),
+                     radial-gradient(circle at 85% 80%, rgba(6, 182, 212, 0.09), transparent 45%),
+                     #090b10;
+      --glass-bg: rgba(18, 22, 33, 0.65);
+      --glass-border: rgba(255, 255, 255, 0.09);
+      --gold: #ffd700;
+      --gold-amber: #f59e0b;
+      --cyan: #06b6d4;
+      --emerald: #10b981;
+      --rose: #f43f5e;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      background: var(--bg-gradient);
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      min-height: 100vh;
+      padding: 24px 16px 48px;
+    }
+
+    .container {
+      max-width: 1120px;
+      margin: 0 auto;
+    }
+
+    .glass {
+      background: var(--glass-bg);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+    }
+
+    .header {
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      border-color: rgba(255, 215, 0, 0.16);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-icon {
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--gold), var(--gold-amber));
+      color: #090b10;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      font-size: 16px;
+      box-shadow: 0 0 22px rgba(255, 215, 0, 0.4);
+    }
+
+    .brand h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(90deg, #ffffff, var(--gold));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand p {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .conn-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .mode-switch {
+      display: inline-flex;
+      background: rgba(9, 11, 16, 0.65);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      padding: 4px;
+      gap: 4px;
+    }
+
+    .mode-btn {
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      padding: 7px 14px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .mode-btn.active {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--gold);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    }
+
+    .wifi-group {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .wifi-group.active {
+      display: flex;
+    }
+
+    .usb-group {
+      display: flex;
+      align-items: center;
+    }
+
+    .usb-group.hidden {
+      display: none;
+    }
+
+    .wifi-input {
+      background: rgba(9, 11, 16, 0.7);
+      border: 1px solid var(--glass-border);
+      color: var(--text-main);
+      padding: 9px 14px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      width: 220px;
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+
+    .wifi-input:focus {
+      border-color: var(--cyan);
+    }
+
+    .wifi-input:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 18px;
+      font-size: 0.86rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+    }
+
+    .btn:active {
+      transform: scale(0.96);
+    }
+
+    .btn-gold {
+      background: linear-gradient(135deg, var(--gold), var(--gold-amber));
+      color: #090b10;
+      box-shadow: 0 0 16px rgba(255, 215, 0, 0.35);
+    }
+
+    .btn-gold:hover {
+      box-shadow: 0 0 24px rgba(255, 215, 0, 0.55);
+    }
+
+    .btn-cyan {
+      background: linear-gradient(135deg, #22d3ee, var(--cyan));
+      color: #090b10;
+      box-shadow: 0 0 16px rgba(6, 182, 212, 0.35);
+    }
+
+    .btn-cyan:hover {
+      box-shadow: 0 0 24px rgba(6, 182, 212, 0.55);
+    }
+
+    .btn-outline {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-main);
+      border: 1px solid var(--glass-border);
+    }
+
+    .btn-outline:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-danger {
+      background: rgba(244, 63, 94, 0.15);
+      color: #fda4af;
+      border: 1px solid rgba(244, 63, 94, 0.35);
+    }
+
+    .status-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 20px;
+      padding: 0 4px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--glass-border);
+    }
+
+    .last-update {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    .last-update strong {
+      color: var(--text-main);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #64748b;
+    }
+
+    .dot.live {
+      background: var(--emerald);
+      box-shadow: 0 0 10px var(--emerald);
+      animation: pulse 1.6s infinite;
+    }
+
+    .dot.wifi {
+      background: var(--cyan);
+      box-shadow: 0 0 10px var(--cyan);
+      animation: pulse 1.6s infinite;
+    }
+
+    .dot.error {
+      background: var(--rose);
+      box-shadow: 0 0 10px var(--rose);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.45; transform: scale(0.85); }
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+
+    .kpi-card {
+      padding: 22px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi-card::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent, var(--gold)), transparent);
+    }
+
+    .kpi-card.cyan { --accent: var(--cyan); }
+
+    .kpi-label {
+      font-size: 0.84rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .kpi-tag {
+      font-size: 0.72rem;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-main);
+    }
+
+    .kpi-value {
+      font-size: 2.5rem;
+      font-weight: 800;
+      margin: 12px 0 8px;
+      letter-spacing: -0.03em;
+    }
+
+    .kpi-value span {
+      font-size: 1.15rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-left: 4px;
+    }
+
+    .kpi-meta {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      display: flex;
+      gap: 14px;
+    }
+
+    .chart-card, .log-card {
+      padding: 22px;
+      margin-bottom: 24px;
+    }
+
+    .section-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .section-header h2 {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .chart-wrapper {
+      position: relative;
+      height: 280px;
+      width: 100%;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.86rem;
+      text-align: left;
+    }
+
+    th {
+      color: var(--text-muted);
+      font-weight: 600;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--glass-border);
+    }
+
+    td {
+      padding: 11px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .empty-row {
+      text-align: center;
+      color: var(--text-muted);
+      padding: 24px 12px;
+    }
+
+    .pill {
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 0.74rem;
+      font-weight: 600;
+    }
+
+    .pill-esp {
+      background: rgba(16, 185, 129, 0.15);
+      color: #6ee7b7;
+    }
+
+    .pill-wifi {
+      background: rgba(6, 182, 212, 0.16);
+      color: #67e8f9;
+    }
+
+    .error-banner {
+      display: none;
+      background: rgba(244, 63, 94, 0.14);
+      border: 1px solid rgba(244, 63, 94, 0.35);
+      color: #fecdd3;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 0.84rem;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="glass header">
+      <div class="brand">
+        <div class="brand-icon" id="brandIcon">logo</div>
+        <div>
+          <h1>ESP32</h1>
+          <p></p>
+        </div>
+      </div>
+
+      <div class="conn-controls">
+        <div class="mode-switch">
+          <button type="button" class="mode-btn active" id="modeUsbBtn">Kabel USB</button>
+          <button type="button" class="mode-btn" id="modeWifiBtn">Wi-Fi</button>
+        </div>
+
+        <div class="usb-group" id="usbControlGroup">
+          <button id="usbConnectBtn" class="btn btn-gold">Hubungkan USB ESP32</button>
+        </div>
+
+        <div class="wifi-group" id="wifiControlGroup">
+          <input
+            type="text"
+            id="wifiUrlInput"
+            class="wifi-input"
+            placeholder="IP ESP32 (cth: 192.168.1.100)"
+          />
+          <button id="wifiConnectBtn" class="btn btn-cyan">Hubungkan Wi-Fi</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="status-bar">
+      <div class="badge">
+        <span id="statusDot" class="dot"></span>
+        <span id="statusText">Belum Terhubung — Pilih mode USB atau Wi-Fi</span>
+      </div>
+      <div class="last-update">Update terakhir: <strong id="lastUpdate">-</strong></div>
+    </div>
+
+    <div id="errorBanner" class="error-banner"></div>
+
+    <section class="kpi-grid">
+      <div class="glass kpi-card">
+        <div class="kpi-label">
+          <span>SUHU </span>
+          <span id="tempStatus" class="kpi-tag">-</span>
+        </div>
+        <div class="kpi-value" id="tempVal">--.-<span>°C</span></div>
+        <div class="kpi-meta">
+          <span>Min: <strong id="tempMin">--</strong>°C</span>
+          <span>Maks: <strong id="tempMax">--</strong>°C</span>
+        </div>
+      </div>
+
+      <div class="glass kpi-card cyan">
+        <div class="kpi-label">
+          <span>KELEMBABAN</span>
+          <span id="humStatus" class="kpi-tag">-</span>
+        </div>
+        <div class="kpi-value" id="humVal">--.-<span>%</span></div>
+        <div class="kpi-meta">
+          <span>Min: <strong id="humMin">--</strong>%</span>
+          <span>Maks: <strong id="humMax">--</strong>%</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="glass chart-card">
+      <div class="section-header">
+        <h2>Grafik Real-Time (20 Pembacaan Terakhir)</h2>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="sensorChart"></canvas>
+      </div>
+    </section>
+
+    <section class="glass log-card">
+      <div class="section-header">
+        <h2>Riwayat Pembacaan Sensor</h2>
+        <div style="display: flex; gap: 8px;">
+          <button id="exportCsvBtn" class="btn btn-outline">Unduh CSV</button>
+          <button id="clearLogBtn" class="btn btn-outline">Reset Data</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Waktu</th>
+              <th>Sumber</th>
+              <th>Suhu (°C)</th>
+              <th>Kelembaban (%)</th>
+            </tr>
+          </thead>
+          <tbody id="logTableBody">
+            <tr>
+              <td colspan="4" class="empty-row">Belum ada data sensor. Hubungkan USB atau Wi-Fi ESP32 untuk mulai memantau.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const brandIcon = document.getElementById('brandIcon');
+    const modeUsbBtn = document.getElementById('modeUsbBtn');
+    const modeWifiBtn = document.getElementById('modeWifiBtn');
+    const usbControlGroup = document.getElementById('usbControlGroup');
+    const wifiControlGroup = document.getElementById('wifiControlGroup');
+
+    const usbConnectBtn = document.getElementById('usbConnectBtn');
+    const wifiUrlInput = document.getElementById('wifiUrlInput');
+    const wifiConnectBtn = document.getElementById('wifiConnectBtn');
+
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const errorBanner = document.getElementById('errorBanner');
+
+    const tempVal = document.getElementById('tempVal');
+    const humVal = document.getElementById('humVal');
+    const tempMinEl = document.getElementById('tempMin');
+    const tempMaxEl = document.getElementById('tempMax');
+    const humMinEl = document.getElementById('humMin');
+    const humMaxEl = document.getElementById('humMax');
+    const tempStatus = document.getElementById('tempStatus');
+    const humStatus = document.getElementById('humStatus');
+    const lastUpdate = document.getElementById('lastUpdate');
+    const logTableBody = document.getElementById('logTableBody');
+
+    let serialPort = null;
+    let serialReader = null;
+    let readableStreamClosed = null;
+    let isUsbConnected = false;
+
+    let isWifiConnected = false;
+    let wifiPollTimer = null;
+    let wifiSocket = null;
+
+    let minTemp = Infinity, maxTemp = -Infinity;
+    let minHum = Infinity, maxHum = -Infinity;
+    let sessionLogs = [];
+
+    // Muat IP/URL Wi-Fi terakhir jika ada
+    const savedWifiUrl = localStorage.getItem('esp32_wifi_url');
+    if (savedWifiUrl) {
+      wifiUrlInput.value = savedWifiUrl;
+    }
+
+    const ctx = document.getElementById('sensorChart').getContext('2d');
+    const sensorChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: 'Suhu (°C)',
+            data: [],
+            borderColor: '#ffd700',
+            backgroundColor: 'rgba(255, 215, 0, 0.12)',
+            borderWidth: 2.5,
+            tension: 0.35,
+            fill: true,
+            pointRadius: 3,
+            yAxisID: 'y'
+          },
+          {
+            label: 'Kelembaban (%)',
+            data: [],
+            borderColor: '#06b6d4',
+            backgroundColor: 'rgba(6, 182, 212, 0.10)',
+            borderWidth: 2.5,
+            tension: 0.35,
+            fill: true,
+            pointRadius: 3,
+            yAxisID: 'y1'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { labels: { color: '#cbd5e1', usePointStyle: true } }
+        },
+        scales: {
+          x: {
+            ticks: { color: '#64748b', maxRotation: 0 },
+            grid: { color: 'rgba(255,255,255,0.04)' }
+          },
+          y: {
+            type: 'linear',
+            position: 'left',
+            ticks: { color: '#ffd700' },
+            grid: { color: 'rgba(255,255,255,0.05)' },
+            title: { display: true, text: 'Suhu (°C)', color: '#ffd700' }
+          },
+          y1: {
+            type: 'linear',
+            position: 'right',
+            ticks: { color: '#06b6d4' },
+            grid: { drawOnChartArea: false },
+            title: { display: true, text: 'Kelembaban (%)', color: '#06b6d4' }
+          }
+        }
+      }
+    });
+
+    function showError(msg) {
+      errorBanner.style.display = 'block';
+      errorBanner.textContent = msg;
+    }
+
+    function hideError() {
+      errorBanner.style.display = 'none';
+    }
+
+    function updateDashboard(temp, hum, source) {
+      const nowStr = new Date().toLocaleTimeString('id-ID');
+
+      tempVal.innerHTML = `${temp.toFixed(1)}<span>°C</span>`;
+      humVal.innerHTML = `${hum.toFixed(1)}<span>%</span>`;
+      lastUpdate.textContent = nowStr;
+
+      if (temp < minTemp) minTemp = temp;
+      if (temp > maxTemp) maxTemp = temp;
+      if (hum < minHum) minHum = hum;
+      if (hum > maxHum) maxHum = hum;
+
+      tempMinEl.textContent = minTemp.toFixed(1);
+      tempMaxEl.textContent = maxTemp.toFixed(1);
+      humMinEl.textContent = minHum.toFixed(1);
+      humMaxEl.textContent = maxHum.toFixed(1);
+
+      tempStatus.textContent = temp > 32 ? 'Panas' : temp < 22 ? 'Sejuk' : 'Normal';
+      humStatus.textContent = hum > 75 ? 'Lembab' : hum < 40 ? 'Kering' : 'Ideal';
+
+      sensorChart.data.labels.push(nowStr);
+      sensorChart.data.datasets[0].data.push(Number(temp.toFixed(1)));
+      sensorChart.data.datasets[1].data.push(Number(hum.toFixed(1)));
+
+      if (sensorChart.data.labels.length > 20) {
+        sensorChart.data.labels.shift();
+        sensorChart.data.datasets[0].data.shift();
+        sensorChart.data.datasets[1].data.shift();
+      }
+      sensorChart.update('none');
+
+      sessionLogs.unshift({
+        time: nowStr,
+        source,
+        temp: temp.toFixed(1),
+        hum: hum.toFixed(1)
+      });
+
+      renderTable();
+    }
+
+    function renderTable() {
+      if (sessionLogs.length === 0) {
+        logTableBody.innerHTML = `
+          <tr>
+            <td colspan="4" class="empty-row">Belum ada data sensor. Hubungkan USB atau Wi-Fi ESP32 untuk mulai memantau.</td>
+          </tr>
+        `;
+        return;
+      }
+
+      logTableBody.innerHTML = sessionLogs.slice(0, 10).map(row => `
+        <tr>
+          <td>${row.time}</td>
+          <td><span class="pill ${row.source === 'ESP32 Wi-Fi' ? 'pill-wifi' : 'pill-esp'}">${row.source}</span></td>
+          <td><strong>${row.temp} °C</strong></td>
+          <td><strong>${row.hum} %</strong></td>
+        </tr>
+      `).join('');
+    }
+
+    function processIncomingPayload(rawText, source) {
+      const trimmed = rawText.trim();
+      if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return;
+
+      try {
+        const data = JSON.parse(trimmed);
+        if (data.status === 'error') {
+          showError('ESP32 terhubung, tetapi sensor DHT11 gagal terbaca. Cek kabel pin DATA (GPIO 4), VCC (3V3), dan GND.');
+          return;
+        }
+
+        const temp = parseFloat(data.temperature);
+        const hum = parseFloat(data.humidity);
+        if (!isNaN(temp) && !isNaN(hum)) {
+          hideError();
+          updateDashboard(temp, hum, source);
+        }
+      } catch (_) {}
+    }
+
+    // --- KONEKSI KABEL USB SERIAL ---
+    async function connectUsbSerial() {
+      if (isWifiConnected) await disconnectWifi();
+
+      if (!('serial' in navigator)) {
+        showError('Browser ini belum mendukung Web Serial. Gunakan Google Chrome atau Microsoft Edge.');
+        return;
+      }
+
+      try {
+        serialPort = await navigator.serial.requestPort();
+        await serialPort.open({ baudRate: 115200 });
+
+        isUsbConnected = true;
+        hideError();
+        statusDot.className = 'dot live';
+        statusText.textContent = 'Terhubung ke ESP32 via Kabel USB (115200 baud)';
+        usbConnectBtn.textContent = 'Putuskan USB';
+        usbConnectBtn.className = 'btn btn-danger';
+
+        const textDecoder = new TextDecoderStream();
+        readableStreamClosed = serialPort.readable.pipeTo(textDecoder.writable);
+        serialReader = textDecoder.readable.getReader();
+
+        let buffer = '';
+        while (isUsbConnected) {
+          const { value, done } = await serialReader.read();
+          if (done) break;
+          buffer += value;
+
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+
+          for (const line of lines) {
+            processIncomingPayload(line, 'ESP32 USB');
+          }
+        }
+      } catch (err) {
+        if (err.name !== 'NotFoundError') {
+          showError(`Gagal membuka port USB: ${err.message}. Pastikan Serial Monitor Arduino IDE sudah ditutup.`);
+        }
+        await disconnectUsbSerial();
+      }
+    }
+
+    async function disconnectUsbSerial() {
+      isUsbConnected = false;
+      try {
+        if (serialReader) {
+          await serialReader.cancel();
+          serialReader = null;
+        }
+        if (readableStreamClosed) {
+          await readableStreamClosed.catch(() => {});
+          readableStreamClosed = null;
+        }
+        if (serialPort) {
+          await serialPort.close();
+          serialPort = null;
+        }
+      } catch (_) {}
+
+      usbConnectBtn.textContent = 'Hubungkan USB ESP32';
+      usbConnectBtn.className = 'btn btn-gold';
+      if (!isWifiConnected) {
+        statusDot.className = 'dot error';
+        statusText.textContent = 'Kabel USB Terputus';
+      }
+    }
+
+    // --- KONEKSI WI-FI (HTTP POLLING / WEBSOCKET) ---
+    function normalizeWifiEndpoint(rawInput) {
+      let val = rawInput.trim();
+      if (!val) return '';
+      if (val.startsWith('ws://') || val.startsWith('wss://')) return val;
+      if (!val.startsWith('http://') && !val.startsWith('https://')) {
+        val = 'http://' + val;
+      }
+      // Jika hanya memasukkan IP/host tanpa path, tambahkan /data
+      try {
+        const urlObj = new URL(val);
+        if (urlObj.pathname === '/' || urlObj.pathname === '') {
+          urlObj.pathname = '/data';
+        }
+        return urlObj.toString();
+      } catch (_) {
+        return val;
+      }
+    }
+
+    async function fetchWifiOnce(endpoint) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      try {
+        const res = await fetch(endpoint, { signal: controller.signal, cache: 'no-store' });
+        clearTimeout(timeoutId);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const text = await res.text();
+        processIncomingPayload(text, 'ESP32 Wi-Fi');
+        return true;
+      } catch (err) {
+        clearTimeout(timeoutId);
+        throw err;
+      }
+    }
+
+    async function connectWifi() {
+      if (isUsbConnected) await disconnectUsbSerial();
+
+      const endpoint = normalizeWifiEndpoint(wifiUrlInput.value);
+      if (!endpoint) {
+        showError('Masukkan alamat IP atau URL ESP32 terlebih dahulu (contoh: 192.168.1.100).');
+        wifiUrlInput.focus();
+        return;
+      }
+
+      wifiUrlInput.value = endpoint;
+      localStorage.setItem('esp32_wifi_url', endpoint);
+      hideError();
+
+      wifiConnectBtn.disabled = true;
+      wifiConnectBtn.textContent = 'Menghubungkan...';
+
+      // Mode WebSocket jika memakai ws:// atau wss://
+      if (endpoint.startsWith('ws://') || endpoint.startsWith('wss://')) {
+        try {
+          wifiSocket = new WebSocket(endpoint);
+          wifiSocket.onopen = () => {
+            isWifiConnected = true;
+            wifiUrlInput.disabled = true;
+            wifiConnectBtn.disabled = false;
+            wifiConnectBtn.textContent = 'Putuskan Wi-Fi';
+            wifiConnectBtn.className = 'btn btn-danger';
+            statusDot.className = 'dot wifi';
+            statusText.textContent = `Terhubung ke ESP32 via Wi-Fi (${endpoint})`;
+          };
+          wifiSocket.onmessage = (event) => {
+            processIncomingPayload(event.data, 'ESP32 Wi-Fi');
+          };
+          wifiSocket.onerror = () => {
+            showError('Gagal terhubung ke WebSocket ESP32. Periksa IP, port, dan jaringan Wi-Fi yang sama.');
+          };
+          wifiSocket.onclose = () => {
+            if (isWifiConnected) disconnectWifi();
+          };
+        } catch (err) {
+          wifiConnectBtn.disabled = false;
+          wifiConnectBtn.textContent = 'Hubungkan Wi-Fi';
+          showError(`URL WebSocket tidak valid: ${err.message}`);
+        }
+        return;
+      }
+
+      // Mode HTTP Polling (default)
+      try {
+        await fetchWifiOnce(endpoint);
+
+        isWifiConnected = true;
+        wifiUrlInput.disabled = true;
+        wifiConnectBtn.disabled = false;
+        wifiConnectBtn.textContent = 'Putuskan Wi-Fi';
+        wifiConnectBtn.className = 'btn btn-danger';
+        statusDot.className = 'dot wifi';
+        statusText.textContent = `Terhubung ke ESP32 via Wi-Fi (${endpoint})`;
+
+        wifiPollTimer = setInterval(async () => {
+          if (!isWifiConnected) return;
+          try {
+            await fetchWifiOnce(endpoint);
+          } catch (_) {
+            showError('Sinyal Wi-Fi ESP32 sempat terputus. Mencoba mengambil data ulang...');
+          }
+        }, 2000);
+      } catch (err) {
+        wifiConnectBtn.disabled = false;
+        wifiConnectBtn.textContent = 'Hubungkan Wi-Fi';
+        showError(
+          `Gagal terhubung ke ${endpoint}. Pastikan PC/HP dan ESP32 berada di jaringan Wi-Fi yang sama, alamat IP benar, dan ESP32 mengirim header CORS.`
+        );
+      }
+    }
+
+    async function disconnectWifi() {
+      isWifiConnected = false;
+      if (wifiPollTimer) {
+        clearInterval(wifiPollTimer);
+        wifiPollTimer = null;
+      }
+      if (wifiSocket) {
+        wifiSocket.close();
+        wifiSocket = null;
+      }
+
+      wifiUrlInput.disabled = false;
+      wifiConnectBtn.disabled = false;
+      wifiConnectBtn.textContent = 'Hubungkan Wi-Fi';
+      wifiConnectBtn.className = 'btn btn-cyan';
+
+      if (!isUsbConnected) {
+        statusDot.className = 'dot error';
+        statusText.textContent = 'Koneksi Wi-Fi Terputus';
+      }
+    }
+
+    // --- EVENT LISTENERS UI ---
+    modeUsbBtn.addEventListener('click', () => {
+      modeUsbBtn.classList.add('active');
+      modeWifiBtn.classList.remove('active');
+      usbControlGroup.classList.remove('hidden');
+      wifiControlGroup.classList.remove('active');
+      brandIcon.textContent = 'USB';
+      hideError();
+    });
+
+    modeWifiBtn.addEventListener('click', () => {
+      modeWifiBtn.classList.add('active');
+      modeUsbBtn.classList.remove('active');
+      usbControlGroup.classList.add('hidden');
+      wifiControlGroup.classList.add('active');
+      brandIcon.textContent = 'WiFi';
+      hideError();
+    });
+
+    usbConnectBtn.addEventListener('click', () => {
+      if (isUsbConnected) {
+        disconnectUsbSerial();
+      } else {
+        connectUsbSerial();
+      }
+    });
+
+    wifiConnectBtn.addEventListener('click', () => {
+      if (isWifiConnected) {
+        disconnectWifi();
+      } else {
+        connectWifi();
+      }
+    });
+
+    wifiUrlInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !isWifiConnected) {
+        connectWifi();
+      }
+    });
+
+    document.getElementById('clearLogBtn').addEventListener('click', () => {
+      sessionLogs = [];
+      minTemp = Infinity; maxTemp = -Infinity;
+      minHum = Infinity; maxHum = -Infinity;
+      tempVal.innerHTML = '--.-<span>°C</span>';
+      humVal.innerHTML = '--.-<span>%</span>';
+      tempStatus.textContent = '-';
+      humStatus.textContent = '-';
+      lastUpdate.textContent = '-';
+      tempMinEl.textContent = '--'; tempMaxEl.textContent = '--';
+      humMinEl.textContent = '--'; humMaxEl.textContent = '--';
+      sensorChart.data.labels = [];
+      sensorChart.data.datasets[0].data = [];
+      sensorChart.data.datasets[1].data = [];
+      sensorChart.update();
+      renderTable();
+    });
+
+    document.getElementById('exportCsvBtn').addEventListener('click', () => {
+      if (sessionLogs.length === 0) {
+        alert('Belum ada data untuk diunduh.');
+        return;
+      }
+      const header = 'Waktu,Sumber,Suhu (C),Kelembaban (%)\n';
+      const rows = sessionLogs.map(r => `${r.time},${r.source},${r.temp},${r.hum}`).join('\n');
+      const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `esp32_dht11_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  </script>
+</body>
+</html>
